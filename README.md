@@ -1,4 +1,4 @@
-# octomind-action-batchgeneration
+# octomind-action-batch-generation
 
 This is a GitHub Action to automatically generate Octomind end-to-end tests right from your CI.
 To use this action a token is required, which you can generate in our [octomind app](https://app.octomind.dev).
@@ -13,7 +13,7 @@ See the [docs](https://octomind.dev/docs/run-tests/execution-curl#create-an-api-
 2. Add the following yml snippet to your steps and insert a value for `baseUrl` pointing to a publicly accessible deployment of your branch.
 
 ```yml
-- uses: OctoMind-dev/octomind-action-batchgeneration
+- uses: OctoMind-dev/octomind-action-batch-generation
   with:
     token: ${{ secrets.OCTOMIND_API_KEY }}
     testTargetId: <your testTargetId that you also get from us>

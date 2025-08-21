@@ -1,0 +1,54 @@
+name: Batch Generation Action
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  batch-generation-action:
+    runs-on: ubuntu-latest
+    name: Batch Generation Test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Corepack enable
+        shell: bash
+        run: |
+          npm install -g corepack@latest
+          corepack enable
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-cache-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-cache-
+
+      - name: install dependencies
+        run: pnpm install
+
+      - name: package
+        run: pnpm run build
+
+      - name: Batch Generation
+        id: batch-generation
+        uses: ./
+        with:
+          octomindBaseUrl: ${{ secrets.OCTOMIND_PREVIEW_URL }}
+          testTargetId: 'af0c0b3e-1863-4b29-9837-3062fa07d7ed'
+          token: ${{ secrets.OCTOMIND_API_KEY }}

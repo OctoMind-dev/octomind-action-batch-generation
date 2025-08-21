@@ -1,0 +1,34 @@
+name: 'OctomindBatchGeneration'
+description: 'Automatically start off a batch generation of tests in Octomind'
+inputs:
+  token:
+    description: 'Your unique identifier'
+    required: true
+  testTargetId:
+    description: 'Your test target id'
+    required: true
+  octomindBaseUrl:
+    description: 'Base URL of the Octomind instance, for switching between production and staging. Defaults to Production url'
+    required: false
+  environmentId:
+    description: 'Optional, id of the environment you want to generate your tests on'
+    required: false
+  entrypointUrlPath:
+    description: 'Optional, path for the entrypoint URL'
+    required: false
+  prerequisiteId:
+    description: 'Optional, id of the dependency the batch generation should follow after'
+    required: false
+  baseUrl:
+    description: 'Optional, base URL for the app'
+    required: false
+outputs:
+  batchGenerationUrl:
+    description: 'Url to view the batch generation results'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+
+branding:
+  icon: check-circle
+  color: purple

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "lint": "eslint src/**/*.ts -c .eslintrc.json",
+    "lint": "biome check",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "build": "rimraf ./dist && ncc build src/index.ts"

@@ -1,7 +1,7 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
 	"vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": false },
-	"files": { "ignoreUnknown": false },
+	"files": { "includes": ["src/**", "test/**", "*.json", "jest.config.ts", "!src/api.ts"]},
 	"formatter": {
 		"enabled": true,
 		"formatWithErrors": false,
@@ -24,9 +24,13 @@
 				"noAdjacentSpacesInRegex": "error",
 				"noArguments": "error",
 				"noCommaOperator": "error",
+				"noStaticOnlyClass": "error",
 				"noExtraBooleanCast": "error",
 				"noUselessEscapeInRegex": "error",
-				"noUselessStringConcat": "error"
+				"noUselessStringConcat": "error",
+				"noUselessThisAlias": "error",
+				"noUselessTypeConstraint": "error",
+				"useArrowFunction": "error"
 			},
 			"correctness": {
 				"noConstAssign": "error",
@@ -56,6 +60,13 @@
 			},
 			"style": {
 				"noCommonJs": "error",
+				"noNamespace": "error",
+				"noNonNullAssertion": "error",
+				"useArrayLiterals": "error",
+				"useAsConstAssertion": "error",
+				"useBlockStatements": "off",
+				"useLiteralEnumMembers": "error",
+				"useUnifiedTypeSignatures": "error",
 				"useConsistentObjectDefinitions": "error",
 				"useConst": "error",
 				"useSingleVarDeclarator": "error",
@@ -67,6 +78,7 @@
 				"noCatchAssign": "error",
 				"noClassAssign": "error",
 				"noCompareNegZero": "error",
+				"noConfusingVoidType": "error",
 				"noConsole": "warn",
 				"noControlCharactersInRegex": "error",
 				"noDebugger": "error",
@@ -76,6 +88,8 @@
 				"noDuplicateObjectKeys": "error",
 				"noDuplicateParameters": "error",
 				"noEmptyBlockStatements": "error",
+				"noExplicitAny": "error",
+				"noExtraNonNullAssertion": "error",
 				"noFallthroughSwitchClause": "error",
 				"noFunctionAssign": "error",
 				"noGlobalAssign": "error",
@@ -83,7 +97,10 @@
 				"noRedeclare": "error",
 				"noSparseArray": "error",
 				"noUnsafeNegation": "error",
-				"noVar": "error"
+				"noUnsafeDeclarationMerging": "error",
+				"noVar": "error",
+				"useNamespaceKeyword": "error",
+				"noTsIgnore": "error"
 			}
 		},
 		"includes": ["**", "!**/dist/", "!**/lib/", "!**/node_modules/"]
@@ -92,14 +109,15 @@
 		"formatter": {
 			"jsxQuoteStyle": "double",
 			"quoteProperties": "asNeeded",
-			"trailingCommas": "none",
-			"semicolons": "asNeeded",
-			"arrowParentheses": "asNeeded",
+			"trailingCommas": "all",
+			"semicolons": "always",
+			"arrowParentheses": "always",
 			"bracketSameLine": false,
-			"quoteStyle": "single",
+			"quoteStyle": "double",
 			"attributePosition": "auto",
-			"bracketSpacing": false
-		}
+			"bracketSpacing": true
+		},
+		"globals": []
 	},
 	"html": { "formatter": { "selfCloseVoidElements": "always" } },
 	"assist": {

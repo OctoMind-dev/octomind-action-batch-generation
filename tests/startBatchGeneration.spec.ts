@@ -170,4 +170,33 @@ describe(startBatchGeneration.name, () => {
       })
     )
   })
+
+  it('excludes optional parameters when they are empty strings', async () => {
+    vi.mocked(core).getInput.mockImplementation((name: string) => {
+      const values: Record<string, string> = {
+        token: 'test-token',
+        octomindBaseUrl: '',
+        entrypointUrlPath: '',
+        environmentId: '',
+        prerequisiteId: '',
+        baseUrl: ''
+      }
+      return values[name] || ''
+    })
+
+    await startBatchGeneration()
+
+    const sentBody = JSON.parse(
+      vi.mocked(fetchJson).mock.calls[0][0].body as string
+    )
+
+    expect(sentBody).not.toHaveProperty('entrypointUrlPath')
+    expect(sentBody).not.toHaveProperty('environmentId')
+    expect(sentBody).not.toHaveProperty('prerequisiteId')
+    expect(sentBody).not.toHaveProperty('baseUrl')
+
+    expect(sentBody).toHaveProperty('prompt')
+    expect(sentBody).toHaveProperty('imageUrls')
+    expect(sentBody).toHaveProperty('context')
+  })
 })

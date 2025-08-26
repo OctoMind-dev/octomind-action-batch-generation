@@ -1,3 +1,3 @@
-import {startBatchGeneration} from './startBatchGeneration'
+import { startBatchGeneration } from "./startBatchGeneration";
 
-await startBatchGeneration()
+await startBatchGeneration();

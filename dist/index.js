@@ -36908,13 +36908,14 @@ const startBatchGeneration = async () => {
         ref: github.context.ref,
         sha: github.context.sha
     };
-    const prompt = 'The following title and description belong to a code change by the user. Create tests that ensure the described functionality works.' +
-        `# TITLE 
-    ${github.context.payload.pull_request?.title || 'No title provided'}
+    const prompt = `The following title and description belong to a code change by the user. Create tests that ensure the described functionality works.
     
-    # DESCRIPTION
-    ${github.context.payload.pull_request?.body || 'No description provided'}
-    `;
+# TITLE 
+${github.context.payload.pull_request?.title || 'No title provided'}
+
+# DESCRIPTION
+${github.context.payload.pull_request?.body || 'No description provided'}
+`;
     const token = core.getInput('token');
     if (token.length === 0) {
         core.setFailed('token is set to an empty string');

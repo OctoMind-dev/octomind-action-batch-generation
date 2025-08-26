@@ -36935,10 +36935,10 @@ ${github.context.payload.pull_request?.body || 'No description provided'}
     const body = JSON.stringify({
         prompt,
         imageUrls: [],
-        entrypointUrlPath,
-        environmentId,
-        prerequisiteId,
-        baseUrl,
+        ...(entrypointUrlPath.length > 0 && { entrypointUrlPath }),
+        ...(environmentId.length > 0 && { environmentId }),
+        ...(prerequisiteId.length > 0 && { prerequisiteId }),
+        ...(baseUrl.length > 0 && { baseUrl }),
         context: {
             source: 'github',
             ...context

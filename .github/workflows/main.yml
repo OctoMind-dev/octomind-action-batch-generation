@@ -52,4 +52,4 @@ jobs:
           octomindBaseUrl: ${{ secrets.OCTOMIND_PREVIEW_URL }}
           testTargetId: '39218802-0800-4f88-9547-04c2593896c3'
           token: ${{ secrets.OCTOMIND_API_KEY }}
-          prerequisiteId: 'e752e759-9db5-4de6-bdcd-006ffc72a671'
+          prerequisiteId: 'a428cb8d-c938-4508-b303-903900177813'

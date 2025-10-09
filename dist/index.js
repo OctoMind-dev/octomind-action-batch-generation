@@ -36891,7 +36891,7 @@ const fetchJson = async ({ url, token, body, method }) => {
 
 
 const DEFAULT_URL = 'https://app.octomind.dev';
-const getBatchGenerationsApiUrl = (octomindUrl, testTargetId) => `${octomindUrl}/api/apiKey/v2/test-targets/${testTargetId}/batch-generations`;
+const getBatchGenerationsApiUrl = (octomindUrl, testTargetId) => `${octomindUrl}/api/apiKey/v3/test-targets/${testTargetId}/batch-generations`;
 const startBatchGeneration = async () => {
     const urlOverride = core.getInput('octomindBaseUrl');
     const octomindUrl = urlOverride.length === 0 ? DEFAULT_URL : urlOverride;

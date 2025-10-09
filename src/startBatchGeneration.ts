@@ -10,7 +10,7 @@ import {BatchGenerationResponse} from './types'
 const DEFAULT_URL = 'https://app.octomind.dev'
 
 const getBatchGenerationsApiUrl = (octomindUrl: string, testTargetId: string) =>
-  `${octomindUrl}/api/apiKey/v2/test-targets/${testTargetId}/batch-generations`
+  `${octomindUrl}/api/apiKey/v3/test-targets/${testTargetId}/batch-generations`
 
 export const startBatchGeneration = async (): Promise<void> => {
   const urlOverride = core.getInput('octomindBaseUrl')

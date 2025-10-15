@@ -9,6 +9,10 @@
   "parserOptions": {
     "project": "./tsconfig.lint.json"
   },
+  "env": {
+    "es2021": true,
+    "node": true
+  },
   "rules": {
     "@typescript-eslint/no-floating-promises": "warn",
     "prettier/prettier": "warn",

@@ -12,30 +12,32 @@ const DEFAULT_URL = 'https://app.octomind.dev'
 const getBatchGenerationsApiUrl = (octomindUrl: string, testTargetId: string) =>
   `${octomindUrl}/api/apiKey/v3/test-targets/${testTargetId}/batch-generations`
 
-export const getEmbeddedImagesFromPullRequest = (pullRequestBody: string): string[] => {
-  const imageUrls: string[] = [];
-  const imageRegex = /<img[^>]*src\s*=\s*["'](https?:\/\/[^\s'"]+)["'][^>]*>/g;
-  let match: RegExpExecArray | null = imageRegex.exec(pullRequestBody);
+export const getEmbeddedImagesFromPullRequest = (
+  pullRequestBody: string
+): string[] => {
+  const imageUrls: string[] = []
+  const imageRegex = /<img[^>]*src\s*=\s*["'](https?:\/\/[^\s'"]+)["'][^>]*>/g
+  let match: RegExpExecArray | null = imageRegex.exec(pullRequestBody)
 
   while (match !== null) {
-    imageUrls.push(match[1]);
-    match = imageRegex.exec(pullRequestBody);
+    imageUrls.push(match[1])
+    match = imageRegex.exec(pullRequestBody)
   }
 
-  return imageUrls;
+  return imageUrls
 }
 
 export const extractMarkdownLinks = (requestBody: string): string[] => {
-  const links: string[] = [];
-  const linkRegex = /\[.*?\]\((https?:\/\/[^\s'"<>]+)\)/g;
-  let match: RegExpExecArray | null = linkRegex.exec(requestBody);
+  const links: string[] = []
+  const linkRegex = /\[.*?\]\((https?:\/\/[^\s'"<>]+)\)/g
+  let match: RegExpExecArray | null = linkRegex.exec(requestBody)
 
   while (match !== null) {
-    links.push(match[1]);
-    match = linkRegex.exec(requestBody);
+    links.push(match[1])
+    match = linkRegex.exec(requestBody)
   }
 
-  return links;
+  return links
 }
 
 export const getReadableTextContentFromPullLinks = async (
@@ -43,54 +45,60 @@ export const getReadableTextContentFromPullLinks = async (
   timeoutMs = 5000,
   maxBytes = 4 * 1024
 ): Promise<string> => {
-  const links = extractMarkdownLinks(pullRequestBody);
-  const TIMEOUT_MS = timeoutMs;
-  const MAX_BYTES = maxBytes;
-  const textContentPromises = links.map(async (link) => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const links = extractMarkdownLinks(pullRequestBody)
+  const textContentPromises = links.map(async link => {
+    const controller = new AbortController()
+    const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const response = await fetch(link, {signal: controller.signal});
-      if (!response.ok) return '';
+      const response = await globalThis.fetch(link, {signal: controller.signal})
+      if (!response.ok) return ''
 
       // Prefer streaming read to enforce byte limit
-      const body = response.body as ReadableStream<Uint8Array> | null;
+      const body = response.body as ReadableStream<Uint8Array> | null
       if (body) {
-        const reader = body.getReader();
-        const decoder = new TextDecoder();
-        let received = 0;
-        let result = '';
-        while (true) {
-          const {value, done} = await reader.read();
-          if (done) break;
-          if (!value) continue;
-          const remaining = MAX_BYTES - received;
-          const chunk: Uint8Array = value instanceof Uint8Array ? value : new Uint8Array(value);
-          const slice = remaining < chunk.byteLength ? chunk.subarray(0, remaining) : chunk;
-          result += decoder.decode(slice, {stream: true});
-          received += slice.byteLength;
-          if (received >= MAX_BYTES) {
-            try { await reader.cancel(); } catch {}
-            break;
+        const reader = body.getReader()
+        const decoder = new TextDecoder()
+        let received = 0
+        let result = ''
+        let doneReading = false
+        while (!doneReading) {
+          const {value, done} = await reader.read()
+          if (done) {
+            doneReading = true
+            break
+          }
+          if (!value) continue
+          const remaining = maxBytes - received
+          const chunk: Uint8Array =
+            value instanceof Uint8Array ? value : new Uint8Array(value)
+          const slice =
+            remaining < chunk.byteLength ? chunk.subarray(0, remaining) : chunk
+          result += decoder.decode(slice, {stream: true})
+          received += slice.byteLength
+          if (received >= maxBytes) {
+            try {
+              await reader.cancel()
+            } catch (_e) {
+              core.error('Failed to cancel reader')
+            }
+            break
           }
         }
-        result += new TextDecoder().decode();
-        return result;
+        result += new TextDecoder().decode()
+        return result
       }
 
       // Fallback: read all text and slice
-      const text = await response.text();
-      return text.slice(0, MAX_BYTES);
+      const text = await response.text()
+      return text.slice(0, maxBytes)
     } catch {
-      return '';
+      return ''
     } finally {
-      clearTimeout(timeout);
+      globalThis.clearTimeout(timeout)
     }
-  });
-  
-  return (
-    await Promise.all(textContentPromises)
-  ).join('\n');
+  })
+
+  return (await Promise.all(textContentPromises)).join('\n')
 }
 
 export const startBatchGeneration = async (): Promise<void> => {
@@ -114,7 +122,10 @@ export const startBatchGeneration = async (): Promise<void> => {
     sha: github.context.sha
   }
 
-  const readableTextContentFromPRLinks = await getReadableTextContentFromPullLinks(github.context.payload.pull_request?.body || '');
+  const readableTextContentFromPRLinks =
+    await getReadableTextContentFromPullLinks(
+      github.context.payload.pull_request?.body || ''
+    )
 
   const prompt = `The following title and description belong to a code change by the user. Create tests that ensure the described functionality works.
     
@@ -123,9 +134,11 @@ ${github.context.payload.pull_request?.title || 'No title provided'}
 
 # DESCRIPTION
 ${github.context.payload.pull_request?.body || 'No description provided'}
-${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${readableTextContentFromPRLinks}` : '' }
+${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${readableTextContentFromPRLinks}` : ''}
 `
-  const embeddedImagesFromPullRequest = getEmbeddedImagesFromPullRequest(github.context.payload.pull_request?.body || '');
+  const embeddedImagesFromPullRequest = getEmbeddedImagesFromPullRequest(
+    github.context.payload.pull_request?.body || ''
+  )
 
   const token = core.getInput('token')
   if (token.length === 0) {

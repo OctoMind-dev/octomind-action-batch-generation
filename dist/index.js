@@ -34696,7 +34696,7 @@ __nccwpck_require__.a(module, async (__webpack_handle_async_dependencies__, __we
 __nccwpck_require__.r(__webpack_exports__);
 /* harmony import */ var _startBatchGeneration__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2791);
 
-await (0,_startBatchGeneration__WEBPACK_IMPORTED_MODULE_0__/* .startBatchGeneration */ .v)();
+await (0,_startBatchGeneration__WEBPACK_IMPORTED_MODULE_0__/* .startBatchGeneration */ .vk)();
 
 __webpack_async_result__();
 } catch(e) { __webpack_async_result__(e); } }, 1);
@@ -34710,8 +34710,10 @@ __webpack_async_result__();
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
-  v: () => (/* binding */ startBatchGeneration)
+  vk: () => (/* binding */ startBatchGeneration)
 });
+
+// UNUSED EXPORTS: extractMarkdownLinks, getEmbeddedImagesFromPullRequest, getReadableTextContentFromPullLinks
 
 // EXTERNAL MODULE: ./node_modules/.pnpm/@actions+core@1.11.1/node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(9999);
@@ -36892,6 +36894,82 @@ const fetchJson = async ({ url, token, body, method }) => {
 
 const DEFAULT_URL = 'https://app.octomind.dev';
 const getBatchGenerationsApiUrl = (octomindUrl, testTargetId) => `${octomindUrl}/api/apiKey/v3/test-targets/${testTargetId}/batch-generations`;
+const getEmbeddedImagesFromPullRequest = (pullRequestBody) => {
+    const imageUrls = [];
+    const imageRegex = /<img[^>]*src\s*=\s*["'](https?:\/\/[^\s'"]+)["'][^>]*>/g;
+    let match = imageRegex.exec(pullRequestBody);
+    while (match !== null) {
+        imageUrls.push(match[1]);
+        match = imageRegex.exec(pullRequestBody);
+    }
+    return imageUrls;
+};
+const extractMarkdownLinks = (requestBody) => {
+    const links = [];
+    const linkRegex = /\[.*?\]\((https?:\/\/[^\s'"<>]+)\)/g;
+    let match = linkRegex.exec(requestBody);
+    while (match !== null) {
+        links.push(match[1]);
+        match = linkRegex.exec(requestBody);
+    }
+    return links;
+};
+const getReadableTextContentFromPullLinks = async (pullRequestBody, timeoutMs = 5000, maxBytes = 4 * 1024) => {
+    const links = extractMarkdownLinks(pullRequestBody);
+    const textContentPromises = links.map(async (link) => {
+        const controller = new AbortController();
+        const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await globalThis.fetch(link, { signal: controller.signal });
+            if (!response.ok)
+                return '';
+            // Prefer streaming read to enforce byte limit
+            const body = response.body;
+            if (body) {
+                const reader = body.getReader();
+                const decoder = new TextDecoder();
+                let received = 0;
+                let result = '';
+                let doneReading = false;
+                while (!doneReading) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        doneReading = true;
+                        break;
+                    }
+                    if (!value)
+                        continue;
+                    const remaining = maxBytes - received;
+                    const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+                    const slice = remaining < chunk.byteLength ? chunk.subarray(0, remaining) : chunk;
+                    result += decoder.decode(slice, { stream: true });
+                    received += slice.byteLength;
+                    if (received >= maxBytes) {
+                        try {
+                            await reader.cancel();
+                        }
+                        catch (_e) {
+                            core.error('Failed to cancel reader');
+                        }
+                        break;
+                    }
+                }
+                result += new TextDecoder().decode();
+                return result;
+            }
+            // Fallback: read all text and slice
+            const text = await response.text();
+            return text.slice(0, maxBytes);
+        }
+        catch {
+            return '';
+        }
+        finally {
+            globalThis.clearTimeout(timeout);
+        }
+    });
+    return (await Promise.all(textContentPromises)).join('\n');
+};
 const startBatchGeneration = async () => {
     const urlOverride = core.getInput('octomindBaseUrl');
     const octomindUrl = urlOverride.length === 0 ? DEFAULT_URL : urlOverride;
@@ -36908,6 +36986,7 @@ const startBatchGeneration = async () => {
         ref: github.context.ref,
         sha: github.context.sha
     };
+    const readableTextContentFromPRLinks = await getReadableTextContentFromPullLinks(github.context.payload.pull_request?.body || '');
     const prompt = `The following title and description belong to a code change by the user. Create tests that ensure the described functionality works.
     
 # TITLE 
@@ -36915,7 +36994,9 @@ ${github.context.payload.pull_request?.title || 'No title provided'}
 
 # DESCRIPTION
 ${github.context.payload.pull_request?.body || 'No description provided'}
+${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${readableTextContentFromPRLinks}` : ''}
 `;
+    const embeddedImagesFromPullRequest = getEmbeddedImagesFromPullRequest(github.context.payload.pull_request?.body || '');
     const token = core.getInput('token');
     if (token.length === 0) {
         core.setFailed('token is set to an empty string');
@@ -36934,7 +37015,7 @@ ${github.context.payload.pull_request?.body || 'No description provided'}
     }, null, 2));
     const body = JSON.stringify({
         prompt,
-        imageUrls: [],
+        imageUrls: embeddedImagesFromPullRequest,
         ...(entrypointUrlPath.length > 0 && { entrypointUrlPath }),
         ...(environmentId.length > 0 && { environmentId }),
         ...(prerequisiteId.length > 0 && { prerequisiteId }),

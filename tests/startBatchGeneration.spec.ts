@@ -2,6 +2,8 @@ import {startBatchGeneration} from '../src/startBatchGeneration'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {fetchJson} from '../src/fetchJson'
 import core from '@actions/core'
+import {getEmbeddedImagesFromPullRequest, extractMarkdownLinks, getReadableTextContentFromPullLinks} from '../src/startBatchGeneration'
+import * as github from '@actions/github'
 
 vi.mock('../src/fetchJson')
 vi.mock('@actions/core')
@@ -25,6 +27,85 @@ vi.mock('@actions/github', () => ({
     }
   }
 }))
+
+describe("getReadableTextContentFromPullLinks", () => {
+  it("returns an empty string if the pull request body is empty", async () => {
+    const pullRequestBody = ''
+    const result = await getReadableTextContentFromPullLinks(pullRequestBody)
+    expect(result).toEqual('')
+  })
+
+  it("returns an empty string if the pull request body does not contain any links", async () => {
+    const pullRequestBody = 'Test PR Description'
+    const result = await getReadableTextContentFromPullLinks(pullRequestBody)
+    expect(result).toEqual('')
+  })
+
+  it("returns the content of the links if the pull request body contains links", async () => {
+    const pullRequestBody = 'Test PR Description with a link: [Test](https://example.com)'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () => 'Test Content'
+      } as unknown as Response)
+    )
+    const result = await getReadableTextContentFromPullLinks(pullRequestBody)
+    expect(result).toEqual('Test Content')
+  })
+})
+
+describe("extractMarkdownLinks", () => {
+  it("returns an empty array if the pull request body is empty", () => {
+    const pullRequestBody = ''
+    const result = extractMarkdownLinks(pullRequestBody)
+    expect(result).toEqual([])
+  })
+
+  it("returns an empty array if the pull request body does not contain any links", () => {
+    const pullRequestBody = 'Test PR Description'
+    const result = extractMarkdownLinks(pullRequestBody)
+    expect(result).toEqual([])
+  })
+
+  it("returns an array of links if the pull request body contains links", () => {
+    const pullRequestBody = 'Test PR Description with a link: [Test](https://example.com)'
+    const result = extractMarkdownLinks(pullRequestBody)
+    expect(result).toEqual(['https://example.com'])
+  })
+})
+
+describe("getEmbeddedImagesFromPullRequest", () => {
+  it("returns an empty array if the pull request body is empty", () => {
+    const pullRequestBody = ''
+    const result = getEmbeddedImagesFromPullRequest(pullRequestBody)
+    expect(result).toEqual([])
+  })
+
+  it("returns an empty array if the pull request body does not contain any images", () => {
+    const pullRequestBody = 'Test PR Description'
+    const result = getEmbeddedImagesFromPullRequest(pullRequestBody)
+    expect(result).toEqual([])
+  })
+
+  it("returns an array of image URLs if the pull request body contains images", () => {
+    const pullRequestBody = 'Test PR Description with an image: <img src="https://example.com/image.png">'
+    const result = getEmbeddedImagesFromPullRequest(pullRequestBody)
+    expect(result).toEqual(['https://example.com/image.png'])
+  })
+
+  it("returns an array of image URLs if the pull request body contains multiple images", () => {
+    const pullRequestBody = 'Test PR Description with an image: <img src="https://example.com/image.png"> and another image: <img src="https://example.com/image2.png">'
+    const result = getEmbeddedImagesFromPullRequest(pullRequestBody)
+    expect(result).toEqual(['https://example.com/image.png', 'https://example.com/image2.png'])
+  })
+
+  it("returns an array of image URLs if the pull request body contains images with different attributes", () => {
+    const pullRequestBody = 'Test PR Description with an image: <img width="100" height="100" src="https://example.com/image.png" alt="image"> and another image: <img src="https://example.com/image2.png" alt="image2" width="100" height="100">'
+    const result = getEmbeddedImagesFromPullRequest(pullRequestBody)
+    expect(result).toEqual(['https://example.com/image.png', 'https://example.com/image2.png'])
+  })
+})
 
 describe(startBatchGeneration.name, () => {
   beforeEach(() => {
@@ -134,6 +215,27 @@ describe(startBatchGeneration.name, () => {
 
     expect(sentBody.prompt).toContain('Test PR Title')
     expect(sentBody.prompt).toContain('Test PR Description')
+  })
+
+  it('includes imageUrls extracted from PR description in the POST body', async () => {
+    // Arrange PR body with two images
+    (github.context.payload.pull_request as unknown as { body: string }).body =
+      'Desc with images: <img src="https://example.com/img1.png" alt="1"> and <img width="100" src="https://example.com/img2.jpg">'
+
+    await startBatchGeneration()
+
+    const sentBody = JSON.parse(
+      vi.mocked(fetchJson).mock.calls[0][0].body as string
+    )
+
+    expect(sentBody).toEqual(
+      expect.objectContaining({
+        imageUrls: [
+          'https://example.com/img1.png',
+          'https://example.com/img2.jpg'
+        ]
+      })
+    )
   })
 
   it('uses default octomind URL when octomindBaseUrl is empty', async () => {

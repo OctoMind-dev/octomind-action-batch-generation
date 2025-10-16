@@ -6,6 +6,11 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import {fetchJson} from './fetchJson'
 import {BatchGenerationResponse} from './types'
+import {
+  createEnvironmentFromEnvironment,
+  getDefaultEnvironment,
+  getEnvironmentByName
+} from './environments'
 
 const DEFAULT_URL = 'https://app.octomind.dev'
 
@@ -154,6 +159,35 @@ ${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${re
   const environmentId = core.getInput('environmentId')
   const prerequisiteId = core.getInput('prerequisiteId')
   const baseUrl = core.getInput('baseUrl')
+
+  const createEnvironment =
+    core.getBooleanInput('createEnvironment') && environmentId.length === 0
+  const prEnvironmentName = `PR-${issueNumber}`
+  core.debug(`createEnvironment: ${createEnvironment}`)
+  if (createEnvironment) {
+    const prEnvironment = await getEnvironmentByName(
+      token,
+      testTargetId,
+      prEnvironmentName
+    )
+    if (!prEnvironment) {
+      const defaultEnvironment = await getDefaultEnvironment(
+        token,
+        testTargetId
+      )
+      if (!defaultEnvironment) {
+        core.setFailed('default environment not found')
+      } else {
+        defaultEnvironment.name = prEnvironmentName
+        defaultEnvironment.discoveryUrl = baseUrl
+        await createEnvironmentFromEnvironment(
+          token,
+          testTargetId,
+          defaultEnvironment
+        )
+      }
+    }
+  }
 
   core.debug(
     JSON.stringify(

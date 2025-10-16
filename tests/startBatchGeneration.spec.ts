@@ -1,4 +1,4 @@
-import {startBatchGeneration} from '../src/startBatchGeneration'
+import {getPresignedUrl, startBatchGeneration} from '../src/startBatchGeneration'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {fetchJson} from '../src/fetchJson'
 import core from '@actions/core'
@@ -75,7 +75,28 @@ describe("extractMarkdownLinks", () => {
   })
 })
 
+describe("getPresignedUrl", () => {
+  const token = "token";
+  const resolvedUrl = "https://new-url.com/image.png?signature=123";
+
+  it("resolves userattachments to signed links", async () => {
+    vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      status: 302,
+      headers: {
+        get: vi.fn().mockReturnValue(resolvedUrl)
+      }
+    } as unknown as Response)
+  )
+    const result = await getPresignedUrl("https://example.com/image.png", token)
+    expect(result).toEqual(resolvedUrl)
+  })
+})
+
 describe("getEmbeddedImagesFromPullRequest", () => {
+
   it("returns an empty array if the pull request body is empty", () => {
     const pullRequestBody = ''
     const result = getEmbeddedImagesFromPullRequest(pullRequestBody)
@@ -108,6 +129,9 @@ describe("getEmbeddedImagesFromPullRequest", () => {
 })
 
 describe(startBatchGeneration.name, () => {
+  const token = "token";
+  const resolvedUrl = "https://new-url.com/image.png?signature=123";
+
   beforeEach(() => {
     // Mock all required inputs with default values
     vi.mocked(core).getInput.mockImplementation((name: string) => {
@@ -130,6 +154,18 @@ describe(startBatchGeneration.name, () => {
     vi.mocked(core.summary.write).mockResolvedValue(core.summary)
 
     vi.mocked(core.getMultilineInput).mockReturnValue([])
+
+    vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      status: 302,
+      headers: {
+        get: vi.fn().mockReturnValue(resolvedUrl)
+      }
+    } as unknown as Response)
+  )
+
   })
 
   it('includes environment id if defined', async () => {
@@ -232,6 +268,27 @@ describe(startBatchGeneration.name, () => {
       expect.objectContaining({
         imageUrls: [
           'https://example.com/img1.png',
+          'https://example.com/img2.jpg'
+        ]
+      })
+    )
+  })
+
+  it('includes imageUrls extracted from PR description and resolves them for userattachments', async () => {
+    // Arrange PR body with two images. one with userattachments and one without
+    (github.context.payload.pull_request as unknown as { body: string }).body =
+      'Desc with images: <img src="https://example.com/user-attachments/img1.png" alt="1"> and <img width="100" src="https://example.com/img2.jpg">'
+
+    await startBatchGeneration()
+
+    const sentBody = JSON.parse(
+      vi.mocked(fetchJson).mock.calls[0][0].body as string
+    )
+
+    expect(sentBody).toEqual(
+      expect.objectContaining({
+        imageUrls: [
+          resolvedUrl,
           'https://example.com/img2.jpg'
         ]
       })

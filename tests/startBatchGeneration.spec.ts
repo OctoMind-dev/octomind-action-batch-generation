@@ -4,9 +4,15 @@ import {fetchJson} from '../src/fetchJson'
 import core from '@actions/core'
 import {getEmbeddedImagesFromPullRequest, extractMarkdownLinks, getReadableTextContentFromPullLinks} from '../src/startBatchGeneration'
 import * as github from '@actions/github'
+import { getEnvironmentByName, getDefaultEnvironment, createEnvironmentFromEnvironment } from '../src/environments'
 
 vi.mock('../src/fetchJson')
 vi.mock('@actions/core')
+vi.mock('../src/environments', () => ({
+  getEnvironmentByName: vi.fn(),
+  getDefaultEnvironment: vi.fn(),
+  createEnvironmentFromEnvironment: vi.fn(),
+}))
 vi.mock('@actions/github', () => ({
   default: vi.fn(),
   context: {
@@ -118,7 +124,8 @@ describe(startBatchGeneration.name, () => {
         entrypointUrlPath: '',
         environmentId: '',
         prerequisiteId: '',
-        baseUrl: ''
+        baseUrl: '',
+        createEnvironment: 'false',
       }
       return defaults[name] || ''
     })
@@ -177,7 +184,8 @@ describe(startBatchGeneration.name, () => {
         entrypointUrlPath: '/test-entrypoint',
         environmentId: 'env-789',
         prerequisiteId: 'prereq-101',
-        baseUrl: 'https://example.com'
+        baseUrl: 'https://example.com',
+        createEnvironment: 'false',
       }
       return values[name] || ''
     })
@@ -281,7 +289,8 @@ describe(startBatchGeneration.name, () => {
         entrypointUrlPath: '',
         environmentId: '',
         prerequisiteId: '',
-        baseUrl: ''
+        baseUrl: '',
+        createEnvironment: 'false',
       }
       return values[name] || ''
     })
@@ -300,5 +309,86 @@ describe(startBatchGeneration.name, () => {
     expect(sentBody).toHaveProperty('prompt')
     expect(sentBody).toHaveProperty('imageUrls')
     expect(sentBody).toHaveProperty('context')
+  })
+})
+
+describe('startBatchGeneration environment creation flow', () => {
+  it('does not create environment if PR environment already exists when createEnvironment=true', async () => {
+    vi.mocked(core.getBooleanInput).mockReturnValue(true)
+    vi.mocked(core).getInput.mockImplementation((name: string) => {
+      const values: Record<string, string> = {
+        token: 'test-token',
+        testTargetId: 'tt-1',
+        octomindBaseUrl: '',
+        entrypointUrlPath: '',
+        environmentId: '', // ensure trigger creation path
+        prerequisiteId: '',
+        baseUrl: 'https://example.com',
+      }
+      return values[name] || ''
+    })
+
+    vi.mocked(getEnvironmentByName).mockResolvedValue({
+      id: 'env-exists',
+      name: 'PR-10',
+      testTargetId: 'tt-1',
+      type: 'CUSTOM',
+      discoveryUrl: 'https://exists',
+      additionalHeaderFields: {},
+      testAccount: { username: 'u', password: 'p', otpInitializerKey: 'otp' },
+      basicAuth: { username: 'bu', password: 'bp' },
+      enableCrossOriginIframes: true,
+      privateLocation: { id: 'pl', name: 'pl', status: 'active', type: 'edge' }
+    })
+    await startBatchGeneration()
+
+    expect(getEnvironmentByName).toHaveBeenCalledWith('test-token', 'tt-1', 'PR-10')
+    expect(getDefaultEnvironment).not.toHaveBeenCalled()
+    expect(createEnvironmentFromEnvironment).not.toHaveBeenCalled()
+  })
+
+  it('creates environment from default when PR env missing and createEnvironment=true', async () => {
+    vi.mocked(core.getBooleanInput).mockReturnValue(true)
+    vi.mocked(core).getInput.mockImplementation((name: string) => {
+      const values: Record<string, string> = {
+        token: 'test-token',
+        testTargetId: 'tt-1',
+        octomindBaseUrl: '',
+        entrypointUrlPath: '',
+        environmentId: '', // ensure trigger creation path
+        prerequisiteId: '',
+        baseUrl: 'https://new-base.example.com',
+      }
+      return values[name] || ''
+    })
+
+    vi.mocked(getEnvironmentByName).mockResolvedValue(undefined)
+    const defaultEnv = {
+      id: 'env-default',
+      name: 'DEFAULT',
+      testTargetId: 'tt-1',
+      type: 'DEFAULT' as const,
+      discoveryUrl: 'https://default',
+      additionalHeaderFields: {},
+      testAccount: { username: 'u', password: 'p', otpInitializerKey: 'otp' },
+      basicAuth: { username: 'bu', password: 'bp' },
+      enableCrossOriginIframes: true,
+      privateLocation: { id: 'pl', name: 'pl', status: 'active', type: 'edge' }
+    }
+    vi.mocked(getDefaultEnvironment).mockResolvedValue(
+      defaultEnv as unknown as Awaited<ReturnType<typeof getDefaultEnvironment>>
+    )
+    await startBatchGeneration()
+
+    expect(getEnvironmentByName).toHaveBeenCalledWith('test-token', 'tt-1', 'PR-10')
+    expect(getDefaultEnvironment).toHaveBeenCalledWith('test-token', 'tt-1')
+    expect(createEnvironmentFromEnvironment).toHaveBeenCalled()
+
+    const args = vi.mocked(createEnvironmentFromEnvironment).mock.calls[0]
+    expect(args[0]).toBe('test-token')
+    expect(args[1]).toBe('tt-1')
+    const createdEnv = args[2] as { name: string; discoveryUrl: string }
+    expect(createdEnv.name).toBe('PR-10')
+    expect(createdEnv.discoveryUrl).toBe('https://new-base.example.com')
   })
 })

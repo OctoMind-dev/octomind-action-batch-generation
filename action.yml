@@ -22,6 +22,10 @@ inputs:
   baseUrl:
     description: 'Optional, base URL for the app'
     required: false
+  createEnvironment:
+    description: 'Optional, create a new environment'
+    default: 'false'
+    required: false
 outputs:
   batchGenerationUrl:
     description: 'Url to view the batch generation results'

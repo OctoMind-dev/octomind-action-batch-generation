@@ -34694,7 +34694,7 @@ function wrappy (fn, cb) {
 "use strict";
 __nccwpck_require__.a(module, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
 __nccwpck_require__.r(__webpack_exports__);
-/* harmony import */ var _startBatchGeneration__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2791);
+/* harmony import */ var _startBatchGeneration__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(419);
 
 await (0,_startBatchGeneration__WEBPACK_IMPORTED_MODULE_0__/* .startBatchGeneration */ .vk)();
 
@@ -34703,7 +34703,7 @@ __webpack_async_result__();
 
 /***/ }),
 
-/***/ 2791:
+/***/ 419:
 /***/ ((__unused_webpack_module, __webpack_exports__, __nccwpck_require__) => {
 
 "use strict";
@@ -36493,7 +36493,7 @@ const supportedSchemas = new Set(['data:', 'http:', 'https:']);
  * @param   {*} [options_] - Fetch options
  * @return  {Promise<import('./response').default>}
  */
-async function fetch(url, options_) {
+async function src_fetch(url, options_) {
 	return new Promise((resolve, reject) => {
 		// Build request object
 		const request = new Request(url, options_);
@@ -36681,7 +36681,7 @@ async function fetch(url, options_) {
 						}
 
 						// HTTP-redirect fetch step 15
-						resolve(fetch(new Request(locationURL, requestOptions)));
+						resolve(src_fetch(new Request(locationURL, requestOptions)));
 						finalize();
 						return;
 					}
@@ -36867,7 +36867,7 @@ function fixResponseChunkedTransferBadEnding(request, errorCallback) {
 ;// CONCATENATED MODULE: ./src/fetchJson.ts
 
 const fetchJson = async ({ url, token, body, method }) => {
-    const response = await fetch(url, {
+    const response = await src_fetch(url, {
         headers: {
             'Content-Type': 'application/json',
             'x-api-key': token
@@ -36884,12 +36884,74 @@ const fetchJson = async ({ url, token, body, method }) => {
     return (await response.json());
 };
 
+;// CONCATENATED MODULE: ./src/environments.ts
+const getEnvironmentByName = async (apiKey, testTargetId, name) => {
+    const baseUrl = 'https://app.octomind.dev/api/apiKey/v3';
+    const response = await fetch(`${baseUrl}/test-targets/${testTargetId}/environments`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey
+        }
+    });
+    if (!response.ok) {
+        return undefined;
+    }
+    const environments = await response.json();
+    const defaultEnvironment = environments.find((environment) => environment.name === name);
+    return defaultEnvironment;
+};
+const getDefaultEnvironment = async (apiKey, testTargetId) => {
+    const baseUrl = 'https://app.octomind.dev/api/apiKey/v3';
+    const response = await fetch(`${baseUrl}/test-targets/${testTargetId}/environments`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey
+        }
+    });
+    if (!response.ok) {
+        return undefined;
+    }
+    const environments = await response.json();
+    const defaultEnvironment = environments.find((environment) => environment.type === 'DEFAULT');
+    return defaultEnvironment;
+};
+const createEnvironmentFromEnvironment = async (apiKey, testTargetId, environment) => {
+    const body = JSON.stringify({
+        name: environment.name,
+        testTargetId,
+        type: 'CUSTOM',
+        discoveryUrl: environment.discoveryUrl,
+        additionalHeaderFields: environment.additionalHeaderFields,
+        testAccount: environment.testAccount,
+        basicAuth: environment.basicAuth,
+        enableCrossOriginIframes: environment.enableCrossOriginIframes,
+        privateLocation: environment.privateLocation
+    });
+    const baseUrl = 'https://app.octomind.dev/api/apiKey/v3';
+    const response = await fetch(`${baseUrl}/test-targets/${testTargetId}/environments`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey
+        },
+        body
+    });
+    if (!response.ok) {
+        return undefined;
+    }
+    const data = await response.json();
+    return data;
+};
+
 ;// CONCATENATED MODULE: ./src/startBatchGeneration.ts
 // this import MUST be a namespace import, otherwise ncc doesn't think it needs to bundle this :)
 // eslint-disable-next-line import/no-namespace
 
 // this import MUST be a namespace import, otherwise ncc doesn't think it needs to bundle this :)
 // eslint-disable-next-line import/no-namespace
+
 
 
 const DEFAULT_URL = 'https://app.octomind.dev';
@@ -37009,6 +37071,23 @@ ${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${re
     const environmentId = core.getInput('environmentId');
     const prerequisiteId = core.getInput('prerequisiteId');
     const baseUrl = core.getInput('baseUrl');
+    const createEnvironment = core.getBooleanInput('createEnvironment') && environmentId.length === 0;
+    const prEnvironmentName = `PR-${issueNumber}`;
+    core.debug(`createEnvironment: ${createEnvironment}`);
+    if (createEnvironment) {
+        const prEnvironment = await getEnvironmentByName(token, testTargetId, prEnvironmentName);
+        if (!prEnvironment) {
+            const defaultEnvironment = await getDefaultEnvironment(token, testTargetId);
+            if (!defaultEnvironment) {
+                core.setFailed('default environment not found');
+            }
+            else {
+                defaultEnvironment.name = prEnvironmentName;
+                defaultEnvironment.discoveryUrl = baseUrl;
+                await createEnvironmentFromEnvironment(token, testTargetId, defaultEnvironment);
+            }
+        }
+    }
     core.debug(JSON.stringify({
         batchGenerationsApiUrl: getBatchGenerationsApiUrl(octomindUrl, testTargetId),
         context

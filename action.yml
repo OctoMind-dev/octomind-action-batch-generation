@@ -22,6 +22,10 @@ inputs:
   baseUrl:
     description: 'Optional, base URL for the app'
     required: false
+  guessDependency:
+    description: 'Optional, whether to guess the dependency (the starting point for the batch generation)'
+    required: false
+    default: "false"
 outputs:
   batchGenerationUrl:
     description: 'Url to view the batch generation results'

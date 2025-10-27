@@ -34713,7 +34713,7 @@ __nccwpck_require__.d(__webpack_exports__, {
   vk: () => (/* binding */ startBatchGeneration)
 });
 
-// UNUSED EXPORTS: extractMarkdownLinks, getEmbeddedImagesFromPullRequest, getReadableTextContentFromPullLinks
+// UNUSED EXPORTS: extractMarkdownLinks, getEmbeddedImagesFromPullRequest, getPresignedUrl, getReadableTextContentFromPullLinks
 
 // EXTERNAL MODULE: ./node_modules/.pnpm/@actions+core@1.11.1/node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(9999);
@@ -36493,7 +36493,7 @@ const supportedSchemas = new Set(['data:', 'http:', 'https:']);
  * @param   {*} [options_] - Fetch options
  * @return  {Promise<import('./response').default>}
  */
-async function fetch(url, options_) {
+async function src_fetch(url, options_) {
 	return new Promise((resolve, reject) => {
 		// Build request object
 		const request = new Request(url, options_);
@@ -36681,7 +36681,7 @@ async function fetch(url, options_) {
 						}
 
 						// HTTP-redirect fetch step 15
-						resolve(fetch(new Request(locationURL, requestOptions)));
+						resolve(src_fetch(new Request(locationURL, requestOptions)));
 						finalize();
 						return;
 					}
@@ -36867,7 +36867,7 @@ function fixResponseChunkedTransferBadEnding(request, errorCallback) {
 ;// CONCATENATED MODULE: ./src/fetchJson.ts
 
 const fetchJson = async ({ url, token, body, method }) => {
-    const response = await fetch(url, {
+    const response = await src_fetch(url, {
         headers: {
             'Content-Type': 'application/json',
             'x-api-key': token
@@ -36894,6 +36894,17 @@ const fetchJson = async ({ url, token, body, method }) => {
 
 const DEFAULT_URL = 'https://app.octomind.dev';
 const getBatchGenerationsApiUrl = (octomindUrl, testTargetId) => `${octomindUrl}/api/apiKey/v3/test-targets/${testTargetId}/batch-generations`;
+const getPresignedUrl = async (url, token) => {
+    const res = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'manual',
+        headers: { Authorization: `token ${token}` }
+    });
+    if (res.status >= 300 && res.status < 400) {
+        return res.headers.get('location'); // immediate Location header
+    }
+    return null;
+};
 const getEmbeddedImagesFromPullRequest = (pullRequestBody) => {
     const imageUrls = [];
     const imageRegex = /<img[^>]*src\s*=\s*["'](https?:\/\/[^\s'"]+)["'][^>]*>/g;
@@ -36997,6 +37008,21 @@ ${github.context.payload.pull_request?.body || 'No description provided'}
 ${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${readableTextContentFromPRLinks}` : ''}
 `;
     const embeddedImagesFromPullRequest = getEmbeddedImagesFromPullRequest(github.context.payload.pull_request?.body || '');
+    const finalUrls = [];
+    for (const url of embeddedImagesFromPullRequest) {
+        if (url.includes('user-attachments')) {
+            const presignedUrl = await getPresignedUrl(url, core.getInput('token'));
+            if (presignedUrl) {
+                finalUrls.push(presignedUrl);
+            }
+            else {
+                finalUrls.push(url);
+            }
+        }
+        else {
+            finalUrls.push(url);
+        }
+    }
     const token = core.getInput('token');
     if (token.length === 0) {
         core.setFailed('token is set to an empty string');
@@ -37015,7 +37041,7 @@ ${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${re
     }, null, 2));
     const body = JSON.stringify({
         prompt,
-        imageUrls: embeddedImagesFromPullRequest,
+        imageUrls: finalUrls,
         ...(entrypointUrlPath.length > 0 && { entrypointUrlPath }),
         ...(environmentId.length > 0 && { environmentId }),
         ...(prerequisiteId.length > 0 && { prerequisiteId }),

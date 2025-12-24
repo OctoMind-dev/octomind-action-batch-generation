@@ -301,4 +301,18 @@ describe(startBatchGeneration.name, () => {
     expect(sentBody).toHaveProperty('imageUrls')
     expect(sentBody).toHaveProperty('context')
   })
+  it('includes guessDependency when true', async () => {
+    vi.mocked(core).getBooleanInput.mockImplementation((name: string) => {
+      if (name === 'guessDependency') return true
+      return false
+    })
+
+    await startBatchGeneration()
+
+    const sentBody = JSON.parse(
+      vi.mocked(fetchJson).mock.calls[0][0].body as string
+    )
+
+    expect(sentBody).toHaveProperty('guessDependency', true)
+  })
 })

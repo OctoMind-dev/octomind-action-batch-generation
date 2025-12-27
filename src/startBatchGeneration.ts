@@ -12,6 +12,18 @@ const DEFAULT_URL = 'https://app.octomind.dev'
 const getBatchGenerationsApiUrl = (octomindUrl: string, testTargetId: string) =>
   `${octomindUrl}/api/apiKey/v3/test-targets/${testTargetId}/batch-generations`
 
+export const getPresignedUrl = async (url: string, token: string) => {
+  const res = await fetch(url, {
+    method: 'HEAD',
+    redirect: 'manual',
+    headers: {Authorization: `token ${token}`}
+  })
+  if (res.status >= 300 && res.status < 400) {
+    return res.headers.get('location') // immediate Location header
+  }
+  return null
+}
+
 export const getEmbeddedImagesFromPullRequest = (
   pullRequestBody: string
 ): string[] => {
@@ -140,6 +152,20 @@ ${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${re
     github.context.payload.pull_request?.body || ''
   )
 
+  const finalUrls: string[] = []
+  for (const url of embeddedImagesFromPullRequest) {
+    if (url.includes('user-attachments')) {
+      const presignedUrl = await getPresignedUrl(url, core.getInput('token'))
+      if (presignedUrl) {
+        finalUrls.push(presignedUrl)
+      } else {
+        finalUrls.push(url)
+      }
+    } else {
+      finalUrls.push(url)
+    }
+  }
+
   const token = core.getInput('token')
   if (token.length === 0) {
     core.setFailed('token is set to an empty string')
@@ -171,7 +197,7 @@ ${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${re
 
   const body = JSON.stringify({
     prompt,
-    imageUrls: embeddedImagesFromPullRequest,
+    imageUrls: finalUrls,
     ...(entrypointUrlPath.length > 0 && {entrypointUrlPath}),
     ...(environmentId.length > 0 && {environmentId}),
     ...(prerequisiteId.length > 0 && {prerequisiteId}),

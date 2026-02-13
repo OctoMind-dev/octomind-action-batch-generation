@@ -21,4 +21,5 @@ See the [docs](https://octomind.dev/docs/run-tests/execution-curl#create-an-api-
     entrypointUrlPath: <optional, URL path to be used after your URL, e.g. /some/path>
     environmentId: <optional, id of the environment that should be discovered against>,
     prerequisiteId: <optional, id of the test case that should be run before batch generation>,
+    guessDependency: <optional, boolean, whether to guess the dependency automatically (default: false)>
 ```

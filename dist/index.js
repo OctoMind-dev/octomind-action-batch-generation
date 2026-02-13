@@ -37290,6 +37290,7 @@ ${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${re
     const environmentId = core.getInput('environmentId');
     const prerequisiteId = core.getInput('prerequisiteId');
     const baseUrl = core.getInput('baseUrl');
+    const guessDependency = core.getBooleanInput('guessDependency');
     core.debug(JSON.stringify({
         batchGenerationsApiUrl: getBatchGenerationsApiUrl(octomindUrl, testTargetId),
         context
@@ -37301,6 +37302,7 @@ ${readableTextContentFromPRLinks.length > 0 ? `\n\n Additional information: ${re
         ...(environmentId.length > 0 && { environmentId }),
         ...(prerequisiteId.length > 0 && { prerequisiteId }),
         ...(baseUrl.length > 0 && { baseUrl }),
+        ...(guessDependency && { guessDependency }),
         context: {
             source: 'github',
             ...context
